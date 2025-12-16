@@ -108,7 +108,8 @@ export const ScheduleOverview: React.FC<ScheduleOverviewProps> = ({ sessions }) 
                         if (next.type === 'performance' && next.groupId === s.groupId && next.classId === s.classId) {
                             groupCount++
                         }
-                        if (next.type === 'warmup' || next.type === 'break' || next.type === 'resurfacing') break
+                        if (next.type === 'warmup' || next.type === 'resurfacing') break
+                        if (next.type === 'break' && next.groupId !== s.groupId) break
                     }
 
                     resultRows.push({
