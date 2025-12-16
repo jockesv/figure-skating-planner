@@ -195,8 +195,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ sessions }): React.R
                 )}
             </Box>
 
-            {/* View Tabs */}
-            <Paper className="glass-card" sx={{ mb: 3, borderRadius: '12px !important', overflow: 'hidden' }}>
+            {/* View Tabs & Zoom Controls */}
+            <Paper className="glass-card" sx={{ mb: 3, borderRadius: '12px !important', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 2 }}>
                 <Tabs
                     value={currentTab}
                     onChange={(_, val) => setCurrentTab(val)}
@@ -212,6 +212,13 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ sessions }): React.R
                     <Tab label="Tävlande" value="skaters" />
                     <Tab label="Översikt" value="overview" />
                 </Tabs>
+
+                {currentTab === 'gantt' && (
+                    <TimelineControls
+                        zoomLevel={zoomLevel}
+                        onZoomChange={setZoomLevel}
+                    />
+                )}
             </Paper>
 
             {/* Critical Scheduling Errors */}
@@ -271,12 +278,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ sessions }): React.R
             <Box>
                 {currentTab === 'gantt' && (
                     <>
-                        <Box className="no-print" sx={{ mb: 2 }}>
-                            <TimelineControls
-                                zoomLevel={zoomLevel}
-                                onZoomChange={setZoomLevel}
-                            />
-                        </Box>
+
                         {conflicts.length > 0 && (
                             <Typography color="error" variant="caption" display="block" sx={{ mb: 1 }}>
                                 Warning: {conflicts.length} overlapping sessions detected.

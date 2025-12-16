@@ -24,81 +24,61 @@ export const TimelineControls: React.FC<TimelineControlsProps> = ({
     const handleZoomOut = () => onZoomChange(Math.max(zoomLevel - 2, 2))
 
     return (
-        <Box
-            className="animate-fadeIn"
-            sx={{
-                p: 3,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 3,
-                borderRadius: DesignTokens.borderRadius.xl,
-                background: DesignTokens.colors.neutral.surfaceGlass,
-                backdropFilter: 'blur(10px)',
-                border: `1px solid ${DesignTokens.colors.neutral.border}`,
-                boxShadow: DesignTokens.shadows.lg,
-                mb: 3,
-                flexWrap: 'wrap',
-            }}
-        >
-            {/* Zoom Controls */}
-            <Box>
-                <Typography
-                    variant="caption"
-                    sx={{
-                        display: 'block',
-                        mb: 1,
-                        fontWeight: 600,
-                        color: DesignTokens.colors.text.secondary,
-                        textTransform: 'uppercase',
-                        fontSize: '0.7rem',
-                        letterSpacing: '0.5px',
-                    }}
-                >
-                    Zoom
-                </Typography>
-                <ButtonGroup
-                    variant="outlined"
-                    size="small"
-                    sx={{
-                        '& .MuiButton-root': {
-                            borderColor: DesignTokens.colors.neutral.border,
-                            transition: DesignTokens.transitions.normal,
-                            '&:hover': {
-                                background: DesignTokens.colors.primary.main + '15',
-                                borderColor: DesignTokens.colors.primary.main,
-                            }
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography
+                variant="caption"
+                sx={{
+                    fontWeight: 600,
+                    color: DesignTokens.colors.text.secondary,
+                    textTransform: 'uppercase',
+                    fontSize: '0.7rem',
+                    letterSpacing: '0.5px',
+                }}
+            >
+                Zoom
+            </Typography>
+            <ButtonGroup
+                variant="outlined"
+                size="small"
+                sx={{
+                    '& .MuiButton-root': {
+                        borderColor: DesignTokens.colors.neutral.border,
+                        transition: DesignTokens.transitions.normal,
+                        '&:hover': {
+                            background: DesignTokens.colors.primary.main + '15',
+                            borderColor: DesignTokens.colors.primary.main,
                         }
+                    }
+                }}
+            >
+                <IconButton
+                    onClick={handleZoomOut}
+                    size="small"
+                    disabled={zoomLevel <= 2}
+                    sx={{ borderRadius: 0 }}
+                >
+                    <ZoomOutIcon fontSize="small" />
+                </IconButton>
+                <Button
+                    disabled
+                    sx={{
+                        minWidth: 50,
+                        fontFamily: DesignTokens.typography.fontFamily.mono,
+                        fontWeight: 600,
+                        px: 1
                     }}
                 >
-                    <IconButton
-                        onClick={handleZoomOut}
-                        size="small"
-                        disabled={zoomLevel <= 2}
-                        sx={{ borderRadius: 0 }}
-                    >
-                        <ZoomOutIcon />
-                    </IconButton>
-                    <Button
-                        disabled
-                        sx={{
-                            minWidth: 60,
-                            fontFamily: DesignTokens.typography.fontFamily.mono,
-                            fontWeight: 600,
-                        }}
-                    >
-                        {zoomLevel}x
-                    </Button>
-                    <IconButton
-                        onClick={handleZoomIn}
-                        size="small"
-                        disabled={zoomLevel >= 20}
-                        sx={{ borderRadius: 0 }}
-                    >
-                        <ZoomInIcon />
-                    </IconButton>
-                </ButtonGroup>
-            </Box>
-
+                    {zoomLevel}x
+                </Button>
+                <IconButton
+                    onClick={handleZoomIn}
+                    size="small"
+                    disabled={zoomLevel >= 20}
+                    sx={{ borderRadius: 0 }}
+                >
+                    <ZoomInIcon fontSize="small" />
+                </IconButton>
+            </ButtonGroup>
         </Box>
     )
 }

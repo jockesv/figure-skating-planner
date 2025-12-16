@@ -443,6 +443,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                                 background: 'rgba(255,255,255,0.8)',
                                 backdropFilter: 'blur(8px)',
                                 borderRadius: DesignTokens.borderRadius.sm,
+                                pl: '20px' // Add padding to align with timeline
                             }}
                         >
                             <Typography variant="h5" fontWeight={700} color="primary">
@@ -454,7 +455,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         </Box>
 
                         {/* Time Ticks */}
-                        <Box sx={{ position: 'relative', height: '32px', borderBottom: `2px solid ${DesignTokens.colors.neutral.border}`, mb: 2 }}>
+                        <Box sx={{ position: 'relative', height: '32px', borderBottom: `2px solid ${DesignTokens.colors.neutral.border}`, mb: 2, ml: '20px' }}>
                             {Array.from({ length: dayBounds.endHour - dayBounds.startHour + 1 }).map((_, i) => {
                                 const hour = dayBounds.startHour + i
                                 const left = i * 60 * pixelsPerMinute
@@ -493,7 +494,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         </Box>
 
                         {/* Session Blocks */}
-                        <Box sx={{ position: 'relative', height: '100px' }}>
+                        <Box sx={{ position: 'relative', height: '100px', ml: '20px' }}>
                             {(dayRenderBlocks[dayGroup.date] || []).map((block) => {
                                 if (block.type === 'single') {
                                     // Non-draggable Single Block (Resurfacing/Break)
