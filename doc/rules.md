@@ -71,17 +71,16 @@ grupperna vara större. Nedan visas ett exempel för Junior damer i en nationell
 | 13 åkare: 4 + 4 + 5 | 14 åkare: 4 + 5 + 5 | 15 åkare: 5 + 5 + 5 |
 | 16 åkare: 5 + 5 + 6 | 17 åkare: 5 + 6 + 6 | 18 åkare: 6 + 6 + 6 |
 
+### Sammanslagning av uppvärmningsgrupper 
+Om tävlingen består av två eller flera små klasser som var för sig inte fyller en egen uppvärmningsgrupp kan flera små klasserna ingå i samma uppvärmningsgrupp om det sammanlagda antalet åkare i dessa grupper håller sig inom storleken för en enskild grupp, exempelvis:  
 
-Om tävlingen består av två eller flera små klasser som var för sig inte fyller en egen
-uppvärmningsgrupp kan flera små klasserna ingå i samma uppvärmningsgrupp om det sammanlagda 
-antalet åkare i dessa grupper håller sig inom storleken för en enskild grupp, exempelvis:  
+På en på en System 3-tävling med 3 åkare i Ungdom 16 flickor + 2 åkare i Juniorer damer = en uppvärmningsgrupp om 5 åkare.  
 
-På en på en System 3-tävling med 3 åkare i Ungdom 16 flickor + 2 åkare i Juniorer damer = en 
-uppvärmningsgrupp om 5 åkare.  
-
-Tänk dock på att inte blanda små / stora åkare eller grupper som har stora hastighetsskillnader 
-tillsammans i en uppvärmningsgrupp, stäm av med er skiljedomare / huvudbedömare i 
-förekommande fall.
+Tänk dock på att:
+- inte blanda små / stora åkare (stor åldersskillnad) eller grupper som har stora hastighetsskillnader tillsammans i en uppvärmningsgrupp.
+- Undvik att slå samman uppvärmningen för klasser med olika uppvärmningstider.
+- Slå inte samman någon grupp som redan är så stor att den delats i flera
+uppvärmningsgrupper. Dessa grupper räknas inte som ”små” och vi slår bara samman ”små” uppvärmningsgrupper. 
 
 
 ## Isvård (spolningar)

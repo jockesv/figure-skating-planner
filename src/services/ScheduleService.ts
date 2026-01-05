@@ -13,6 +13,9 @@ export class ScheduleService {
     /**
      * Generates a basic schedule for the given competition data.
      */
+    /**
+     * Generates a basic schedule for the given competition data.
+     */
     public generateSchedule(data: CompetitionData, settings: SchedulerSettings): Schedule {
         const warnings: string[] = []
 
@@ -82,23 +85,60 @@ export class ScheduleService {
             allClasses.sort(defaultSort)
         }
 
-        // 3. Process Logic
+        // 3. Group Classes into Scheduling Units (Merging Logic)
+        interface SchedulingUnit {
+            classes: SkatingClass[]
+            isMerged: boolean
+        }
+
+        const units: SchedulingUnit[] = []
+        let i = 0
+        while (i < allClasses.length) {
+            const current = allClasses[i]
+            const currentUnit: SchedulingUnit = { classes: [current], isMerged: false }
+
+            // Try to merge with next class(es)
+            // Rules for merging:
+            // 1. Both must be "small" (fit in one group individually)
+            // 2. Combined size must fit in one group (using the stricter limit if they differ, or first one)
+            // 3. Must have compatible warmup times (checked against rules)
+            // 4. Must NOT be split classes (already handled by rule 1 basically, but we check if they generate >1 group)
+
+            // Look ahead
+            let j = i + 1
+            while (j < allClasses.length) {
+                const next = allClasses[j]
+
+                // Attempt merge
+                const canMerge = this.checkMergeCompatibility(currentUnit, next, settings)
+
+                if (canMerge) {
+                    currentUnit.classes.push(next)
+                    currentUnit.isMerged = true
+                    j++
+                } else {
+                    break
+                }
+            }
+
+            units.push(currentUnit)
+            i = j
+        }
+
+        // 4. Process Logic
         let currentSlotIndex = 0
         let currentTime = new Date(slots[0].start)
 
-        // Track Ice Maintenance Constraints globally across classes within a slot?
-        // Or reset per slot? Usually reset per day (Slot).
-        let accumulatedDuration = 0 // Time on ice since last resurface
+        let accumulatedDuration = 0
         let accumulatedSkaters = 0
 
-        // We use a temporary list to hold the finalized sessions
         const inputSessions: ScheduleSession[] = []
 
-        for (const skatingClass of allClasses) {
+        for (const unit of units) {
             if (currentSlotIndex >= slots.length) break
 
-            // Generate optimistic sessions for this class starting from currentTime
-            const rawSessions = this.generateSessionsForClass(skatingClass, currentTime, settings)
+            // Generate sessions for the entire UNIT
+            const rawSessions = this.generateSessionsForUnit(unit, currentTime, settings)
 
             // Group into Atomic Blocks
             interface Block {
@@ -112,11 +152,6 @@ export class ScheduleService {
             let currentGroupId: number | null = null
 
             for (const s of rawSessions) {
-                // Strip out internal Resurfacing/Breaks from GenerateSessions? 
-                // The old logic inserted them. We might want to control them here at the high level now.
-                // But generateSessionsForClass handles per-class rules (maxSkaters).
-                // Let's Keep them but treat them as single blocks.
-
                 if (s.type === 'warmup') {
                     if (currentBlock) blocks.push(currentBlock)
                     currentBlock = { sessions: [s], totalDuration: s.duration, type: 'group' }
@@ -131,13 +166,12 @@ export class ScheduleService {
                         currentGroupId = null
                     }
                 } else if (s.type === 'break' && s.name === '(Förb.)') {
-                    // Treat Prep buffer as part of the group
                     if (currentBlock && currentBlock.type === 'group' && s.groupId === currentGroupId) {
                         currentBlock.sessions.push(s)
                         currentBlock.totalDuration += s.duration
                     } else {
                         if (currentBlock) blocks.push(currentBlock)
-                        currentBlock = { sessions: [s], totalDuration: s.duration, type: 'single' } // Should not happen if flow is correct
+                        currentBlock = { sessions: [s], totalDuration: s.duration, type: 'single' }
                         currentGroupId = null
                     }
                 } else {
@@ -149,101 +183,110 @@ export class ScheduleService {
             if (currentBlock) blocks.push(currentBlock)
 
             // Place Blocks
-            // We use a Transactional Try-Fit approach to account for dynamic expansions (Lunch/Resurface)
-
             for (const block of blocks) {
+                // 1. Dynamic Lunch Check (Between Blocks)
+                // We check if we should insert lunch BEFORE this block.
+
+                const lunchTargetParts = (settings.lunchStartTime || '12:00').split(':').map(Number)
+                const lunchTarget = new Date(currentTime)
+                lunchTarget.setHours(lunchTargetParts[0], lunchTargetParts[1], 0, 0)
+
+                const lunchLatest = new Date(currentTime)
+                lunchLatest.setHours(14, 0, 0, 0) // Hard limit 14:00
+
+                const currentDayStr = currentTime.toISOString().split('T')[0]
+                const hasLunchToday = inputSessions.some(s =>
+                    s.type === 'break' &&
+                    s.name.toLowerCase().includes('lunch') &&
+                    s.startTime.toISOString().startsWith(currentDayStr)
+                )
+
+                let lunchBlock: Block | null = null
+
+                if (!hasLunchToday) {
+                    const softLunchLimit = new Date(lunchTarget)
+                    softLunchLimit.setHours(lunchTarget.getHours() + 1) // 13:00 preferred limit
+
+                    const blockEnd = new Date(currentTime.getTime() + block.totalDuration * 1000)
+
+                    // Logic:
+                    // If we MUST take lunch (past limit OR block pushes past hard limit)
+                    // OR if we SHOULD take lunch (past target AND block pushes past soft limit)
+                    const mustTakeLunch = (currentTime >= softLunchLimit) || (blockEnd > lunchLatest)
+                    const shouldTakeLunch = (currentTime >= lunchTarget) && (blockEnd > softLunchLimit)
+
+                    if (mustTakeLunch || shouldTakeLunch) {
+                        lunchBlock = {
+                            type: 'single',
+                            totalDuration: 60 * 60,
+                            sessions: [{
+                                id: uuidv4(), type: 'break',
+                                startTime: new Date(currentTime),
+                                endTime: new Date(currentTime),
+                                duration: 60 * 60,
+                                name: 'Lunch (Inkl. Isvård)',
+                                classId: 'break'
+                            }]
+                        }
+                    }
+                }
+
+                if (lunchBlock) {
+                    let lPlaced = false
+                    while (!lPlaced && currentSlotIndex < slots.length) {
+                        const slot = slots[currentSlotIndex]
+
+                        // Check fit in current slot
+                        const lStart = new Date(currentTime)
+                        const lEnd = new Date(lStart.getTime() + lunchBlock.totalDuration * 1000)
+
+                        if (lEnd.getTime() <= slot.end.getTime()) {
+                            inputSessions.push({
+                                ...lunchBlock.sessions[0],
+                                startTime: lStart,
+                                endTime: lEnd
+                            })
+                            currentTime = lEnd
+                            accumulatedDuration = 0
+                            accumulatedSkaters = 0
+                            lPlaced = true
+                        } else {
+                            currentSlotIndex++
+                            if (currentSlotIndex < slots.length) {
+                                currentTime = new Date(slots[currentSlotIndex].start)
+                                accumulatedDuration = 0
+                                accumulatedSkaters = 0
+                                // Skip lunch for this day if we skipped the day?
+                                // If we jump to next day (08:00), we don't need lunch immediately.
+                                lPlaced = true
+                            }
+                        }
+                    }
+                }
+
                 let placed = false
-
-                // Helper to perform placement simulation/commit
-                // If 'commit' is true, we push to real list and update real state.
-                // If 'commit' is false, we just return the final time or null if it fails.
-
                 while (!placed && currentSlotIndex < slots.length) {
                     const slot = slots[currentSlotIndex]
-
-                    // Snapshot state for this attempt
                     let simTime = new Date(currentTime)
                     let simAccumulatedDuration = accumulatedDuration
                     let simAccumulatedSkaters = accumulatedSkaters
                     const simSessions: ScheduleSession[] = []
-
                     let fits = true
 
                     for (const s of block.sessions) {
-                        // IMPORTANT: Ignore s.startTime and s.endTime from generateSessionsForClass
-                        // We only use s.duration and place from simTime
-                        // This prevents gaps when breaks/lunch are inserted
-
-                        // 1. Check Lunch - STRICT TIME CHECK (Automated)
-                        // Rule: Lunch should be ~11:30-14:00.
-                        // We enforce lunch if time passes 11:30 and we have a suitable break opportunity.
-                        // Simplify: If simTime >= 12:00 (midday) and we haven't had lunch in this slot?
-                        // Or better: If simTime crosses 12:00?
-
-                        // 1. Check Lunch - STRICT TIME CHECK
-                        // Rule: Lunch should be ~12:00.
-                        const lunchTargetHour = 12
-                        const lunchThreshold = new Date(simTime)
-                        lunchThreshold.setHours(lunchTargetHour, 0, 0, 0)
-
-                        const durationMs = s.duration * 1000
-
-                        // Force lunch if we cross 12:00 or are past it
-                        const crossesLunch = simTime.getTime() < lunchThreshold.getTime() && (simTime.getTime() + durationMs) > lunchThreshold.getTime()
-                        const isPastLunch = simTime.getTime() >= lunchThreshold.getTime() && simTime.getTime() < (lunchThreshold.getTime() + 60 * 60000)
-
-                        // If we hit lunch window
-                        if (crossesLunch || isPastLunch) {
-                            // Force Lunch Break
-                            const lunchDuration = 60 * 60 // Fixed 60 min standard
-
-                            // Lunch Break (Includes Resurfacing)
-                            const lEnd = new Date(simTime.getTime() + lunchDuration * 1000)
-
-                            // Only add if fit
-                            if (lEnd.getTime() <= slot.end.getTime()) {
-                                simSessions.push({
-                                    id: uuidv4(), type: 'break',
-                                    startTime: new Date(simTime), endTime: lEnd, duration: lunchDuration,
-                                    name: 'Lunch (Inkl. Isvård)',
-                                    classId: 'break'
-                                })
-                                simTime = lEnd
-
-                                // RESET COUNTERS
-                                simAccumulatedDuration = 0
-                                simAccumulatedSkaters = 0
-
-                                // Recalculate lunch threshold context for next pass isn't needed as we break loop or continue
-                            } else {
-                                fits = false
-                                break
-                            }
-                        }
-
-                        if (!fits) break
-
-                        // 2. Check Dynamic Resurfacing (Rules)
-                        // Only check if it's a content session (not break/resurf) and NOT immediately after a break (accumulatedDuration > 0)
+                        // 1. Check Dynamic Resurfacing (Rules)
                         if (s.type !== 'resurfacing' && s.type !== 'break') {
-                            // Use Rule
-                            const rule = (this as any).getRuleForClass(s.className || 'default', settings.rules)
+                            const primaryClass = unit.classes[0]
+                            const rule = (this as any).getRuleForClass(primaryClass.name, settings.rules)
                             const limitSkaters = rule.maxSkatersBetweenResurfacing
 
-                            // We ignore global maxIceTime as per user req, relying on Skater Count table.
-                            // But as a fallback for low-density classes, we might want a sanity check?
-                            // User said: "Is få åkare... kan man spola oftare".
-                            // Let's rely STRICTLY on skater count for now as requested.
-
                             let needResurface = false
-
-                            // Skater Limit Check
                             if (simAccumulatedSkaters > 0 && s.skaterCount && (simAccumulatedSkaters + s.skaterCount) > limitSkaters) {
                                 needResurface = true
                             }
 
                             if (needResurface) {
-                                const resDuration = 15 * 60 // Fixed 15 min
+                                const resDuration = 15 * 60
                                 const rEnd = new Date(simTime.getTime() + resDuration * 1000)
 
                                 if (rEnd.getTime() <= slot.end.getTime()) {
@@ -253,7 +296,6 @@ export class ScheduleService {
                                         classId: s.classId, name: 'Isvård'
                                     })
                                     simTime = rEnd
-                                    // RESET COUNTERS
                                     simAccumulatedDuration = 0
                                     simAccumulatedSkaters = 0
                                 } else {
@@ -263,7 +305,7 @@ export class ScheduleService {
                             }
                         }
 
-                        // 3. Place Session
+                        // 2. Place Session
                         const sEnd = new Date(simTime.getTime() + s.duration * 1000)
                         if (sEnd.getTime() > slot.end.getTime()) {
                             fits = false
@@ -278,21 +320,18 @@ export class ScheduleService {
                             simAccumulatedDuration += s.duration
                             if (s.skaterCount) simAccumulatedSkaters += s.skaterCount
                         } else {
-                            // If we placed a manual break/resurf (shouldn't happen often here), reset?
                             simAccumulatedDuration = 0
                             simAccumulatedSkaters = 0
                         }
                     }
 
                     if (fits) {
-                        // Commit!
                         simSessions.forEach(sess => inputSessions.push(sess))
                         currentTime = simTime
                         accumulatedDuration = simAccumulatedDuration
                         accumulatedSkaters = simAccumulatedSkaters
                         placed = true
                     } else {
-                        // Try Next Slot
                         currentSlotIndex++
                         if (currentSlotIndex < slots.length) {
                             currentTime = new Date(slots[currentSlotIndex].start)
@@ -303,18 +342,15 @@ export class ScheduleService {
                 }
 
                 if (!placed) {
-                    warnings.push(`Could not schedule block from class ${skatingClass.name} - Schedule Full`)
+                    warnings.push(`Could not schedule block from class ${unit.classes.map(c => c.name).join(' & ')} - Schedule Full`)
                 }
             }
         }
 
         // POST-PROCESSING: Compact schedule to remove gaps
-        // Sort sessions by start time
         const sortedSessions = [...inputSessions].sort((a, b) =>
             new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
         )
-
-        // Group by day
         const sessionsByDay = new Map<string, ScheduleSession[]>()
         sortedSessions.forEach(session => {
             const start = new Date(session.startTime)
@@ -325,27 +361,19 @@ export class ScheduleService {
             sessionsByDay.get(dateKey)!.push(session)
         })
 
-        // Compact each day's sessions to remove gaps
         const compactedSessions: ScheduleSession[] = []
         sessionsByDay.forEach((daySessions) => {
             if (daySessions.length === 0) return
-
-            // Start from the first session's original start time
             let currentTime = new Date(daySessions[0].startTime)
-
             daySessions.forEach((session) => {
-                // Place session at currentTime
                 const duration = session.duration
                 const newStart = new Date(currentTime)
                 const newEnd = new Date(currentTime.getTime() + duration * 1000)
-
                 compactedSessions.push({
                     ...session,
                     startTime: newStart,
                     endTime: newEnd
                 })
-
-                // Move currentTime forward by the session's duration
                 currentTime = newEnd
             })
         })
@@ -360,85 +388,104 @@ export class ScheduleService {
                 version: '1.0',
                 totalDuration: 0,
                 efficiency: 0,
-                validationWarnings: warnings // Custom field? If not in type, typescript will error.
+                validationWarnings: warnings
             }
         }
     }
 
+    private checkMergeCompatibility(unit: { classes: SkatingClass[], isMerged: boolean }, candidate: SkatingClass, settings: SchedulerSettings): boolean {
+        // 1. Get Params
+        const existingSkaters = unit.classes.flatMap(c => this.getAllSkaters(c))
+        const candidateSkaters = this.getAllSkaters(candidate)
 
-    private generateSessionsForClass(skatingClass: SkatingClass, startTime: Date, settings: SchedulerSettings): ScheduleSession[] {
+        // 2. Max Group Size Check
+        // Use strict check: Both primary class rule AND candidate class rule must be satisfied by the TOTAL size?
+        // Or just one? The rule says "håller sig inom storleken för en enskild grupp".
+        // Let's take the MIN of all involved limits to be safe.
+        const rule1 = this.getRuleForClass(unit.classes[0].name, settings.rules)
+        const rule2 = this.getRuleForClass(candidate.name, settings.rules)
+        const limit = Math.min(rule1.maxGroupSize, rule2.maxGroupSize)
+
+        const totalSkaters = existingSkaters.length + candidateSkaters.length
+
+        if (totalSkaters > limit) return false
+
+        // 3. Warmup Time Check
+        // Check if warmup times match EXACTLY
+        const isShort1 = unit.classes[0].type.toLowerCase().includes('short') || unit.classes[0].type.toLowerCase().includes('kort')
+        const wu1 = isShort1 ? rule1.warmupTimeShort : rule1.warmupTimeFree
+
+        const isShort2 = candidate.type.toLowerCase().includes('short') || candidate.type.toLowerCase().includes('kort')
+        const wu2 = isShort2 ? rule2.warmupTimeShort : rule2.warmupTimeFree
+
+        if (wu1 !== wu2) return false
+
+        // 4. Category Safety Check
+        // "Inte blanda små/stora åkare".
+        // Heuristic: Don't merge if one says "Ungdom" and other "Senior"?
+        // Or just let the user order them. Since they are adjacent in list due to Sort, they should be relatively close.
+        // We assume Sort handles basic grouping.
+        // But we can check for Type match (Short vs Short) just to be sure we aren't merging across segments crazily.
+        if (isShort1 !== isShort2) return false
+
+        return true
+    }
+
+    private generateSessionsForUnit(unit: { classes: SkatingClass[], isMerged: boolean }, startTime: Date, settings: SchedulerSettings): ScheduleSession[] {
         const sessions: ScheduleSession[] = []
         let currentTime = new Date(startTime)
 
-        // Get rules for this class
-        const rule = this.getRuleForClass(skatingClass.name, settings.rules)
-        const isShort = skatingClass.type.toLowerCase().includes('short') || skatingClass.type.toLowerCase().includes('kort')
+        // If merged, we treat as one big group.
+        // If not, it's just a normal class (one or more groups).
 
-        const allSkaters = this.getAllSkaters(skatingClass)
-        const groups = this.calculateWarmupGroups(allSkaters, rule.maxGroupSize)
+        // Aggregated Skaters
+        // If merged, we want to maintain class order: Class A skaters, then Class B skaters.
+        const allSkaters: Person[] = []
+        unit.classes.forEach(c => allSkaters.push(...this.getAllSkaters(c)))
 
-        // Check for Lunch Break logic
-        // If currentTime is within lunch window or we passed it significantly?
-        // Actually, best to check "Are we about to cross lunch?"
-        // OR: Simpler: If currentTime > lunchStart && lunchNotTaken, insert lunch.
-        // BUT: We are inside a class. We usually don't break a class for lunch unless necessary.
-        // Story says "Lunch... usually between 11:30-14:00... Combined with resurfacing".
-        // Let's check BEFORE starting the groups.
+        // Get Rule (use first class as representative)
+        const primaryClass = unit.classes[0]
+        const rule = this.getRuleForClass(primaryClass.name, settings.rules)
+        const isShort = primaryClass.type.toLowerCase().includes('short') || primaryClass.type.toLowerCase().includes('kort')
 
+        // Grouping
+        // If isMerged, we FORCE one group (we checked limits in checkMergeCompatibility).
+        // If not merged, we calculate groups normally.
+        let groups: Person[][] = []
+        if (unit.isMerged) {
+            groups = [allSkaters]
+        } else {
+            groups = this.calculateWarmupGroups(allSkaters, rule.maxGroupSize)
+        }
+
+        // Lunch Logic (Simplified pre-check)
         const lunchStartParts = (settings.lunchStartTime || '12:00').split(':').map(Number)
         const lunchStart = new Date(currentTime)
         lunchStart.setHours(lunchStartParts[0], lunchStartParts[1], 0, 0)
-
-        // If currently before lunch, and starting this class would go well past lunch start?
-        // Or if we already passed lunch start (but not by much)?
-        // Simple logic: If currentTime >= lunchStart, and we haven't just had a big break...
-        // We need context to know if lunch was taken. 
-        // For this iteration/story, let's look at the time of day. 
-        // If currentTime is between LunchStart and LunchStart + 2h?
-        // Issues: 
-        // 1. We might be generating day 2. 'lunchStart' needs to be for current day.
-
-        // Fix: Adjust lunchStart to current day
         if (currentTime.getDate() !== lunchStart.getDate()) {
             lunchStart.setFullYear(currentTime.getFullYear(), currentTime.getMonth(), currentTime.getDate())
             lunchStart.setHours(lunchStartParts[0], lunchStartParts[1], 0, 0)
         }
 
-        // Logic: specific break session with resurfacing
-        if (currentTime.getTime() >= lunchStart.getTime() && currentTime.getTime() < lunchStart.getTime() + 60 * 60000) {
-            // We are in lunch window. Insert lunch if not already handled?
-            // Since we iterate sequentially, if we arrive here and it's 12:00, we add lunch.
-            // But we don't want to add it multiple times.
-            // We can assume if the *previous* session ended exactly at currentTime, and no lunch session exists...
-            // BUT we don't see previous sessions here easily (only returned ones).
-
-            // Let's skip complicated "Have we had lunch?" state tracking for Story 07 and assume:
-            // If currentTime is near lunch start (within 30 mins after), forced lunch.
-
-            // Actually, simplest is: Insert lunch break session if constraints are met.
-            // And we return it as first session of this block.
-        }
-
-        // IMPROVED RESURFACING LOGIC (Skater Count)
-        // Rule: maxSkatersBetweenResurfacing
-        // If not defined, fallback to global interval (groups)
-
-        // This counter is local to class, which is a limitation. 
-        // Ideal: Pass context. For now, we assume resurface at start OR handled by previous class.
-        // We just handle INTERNAL resurfacing.
-
-        let accumulatedSkaters = 0
         groups.forEach((groupSkaters, index) => {
             const groupIndex = index + 1
             const groupSize = groupSkaters.length
-            accumulatedSkaters += groupSize
-
-            // Check for potential Lunch Break BEFORE this group?
-            // Re-eval lunch start for this specific time
 
             // 1. Warmup
             const warmupDuration = isShort ? rule.warmupTimeShort : rule.warmupTimeFree
             const warmupEnd = new Date(currentTime.getTime() + warmupDuration * 1000)
+
+            const displayText = unit.isMerged
+                ? `Uppvärmning (Sammanslagning: ${unit.classes.map(c => c.name).join(', ')})`
+                : unit.classes.length === 1
+                    ? `Uppvärmning Grupp ${groupIndex}`
+                    : `Uppvärmning`
+
+            // Composite class ID for merged? Or just first?
+            // Used for Validations.
+            // Let's use first class ID but maybe allow multiple?
+            // The type ScheduleSession has single classId.
+            // Use Primary classId.
 
             sessions.push({
                 id: uuidv4(),
@@ -446,40 +493,44 @@ export class ScheduleService {
                 startTime: new Date(currentTime),
                 endTime: warmupEnd,
                 duration: warmupDuration,
-                classId: skatingClass.id,
-                className: skatingClass.name,
+                classId: primaryClass.id,
+                className: unit.isMerged ? `Sammanslagen: ${unit.classes.map(c => c.name).join(' + ')}` : primaryClass.name,
                 groupId: groupIndex,
-                name: `Uppvärmning Grupp ${groupIndex}`,
+                name: displayText,
                 skaterCount: groupSize
             })
 
             currentTime = warmupEnd
 
-            // 1b. Buffer/Prep time (First Skater In Warmup Group)
-            // This adds a small gap (e.g., 30s) between warmup and first skater
+            // 1b. Buffer/Prep
             if (rule.firstSkaterInWarmupGroup && rule.firstSkaterInWarmupGroup > 0) {
                 const bufferDuration = rule.firstSkaterInWarmupGroup
                 const bufferEnd = new Date(currentTime.getTime() + bufferDuration * 1000)
 
                 sessions.push({
                     id: uuidv4(),
-                    type: 'break', // Use break to occupy time but (maybe) not render prominently if handled by Timeline
+                    type: 'break',
                     startTime: new Date(currentTime),
                     endTime: bufferEnd,
                     duration: bufferDuration,
-                    classId: skatingClass.id,
-                    className: skatingClass.name,
-                    name: '(Förb.)', // Short name
-                    groupId: groupIndex // Associate with group
+                    classId: primaryClass.id,
+                    className: primaryClass.name,
+                    name: '(Förb.)',
+                    groupId: groupIndex
                 })
-
                 currentTime = bufferEnd
             }
 
             // 2. Performances
+            // Need to know which class each skater belongs to for correct className/ID attribution
             groupSkaters.forEach(skater => {
-                const judgingTime = isShort ? rule.judgingTimeShort : rule.judgingTimeFree
-                const performanceTime = isShort ? rule.performanceTimeShort : rule.performanceTimeFree
+                // Find source class
+                const sourceClass = unit.classes.find(c => this.getAllSkaters(c).some(s => s.id === skater.id)) || primaryClass
+                const sourceRule = this.getRuleForClass(sourceClass.name, settings.rules)
+                const sourceIsShort = sourceClass.type.toLowerCase().includes('short') || sourceClass.type.toLowerCase().includes('kort')
+
+                const judgingTime = sourceIsShort ? sourceRule.judgingTimeShort : sourceRule.judgingTimeFree
+                const performanceTime = sourceIsShort ? sourceRule.performanceTimeShort : sourceRule.performanceTimeFree
 
                 const duration = settings.introductionDuration + performanceTime + judgingTime
                 const perfEnd = new Date(currentTime.getTime() + duration * 1000)
@@ -490,8 +541,8 @@ export class ScheduleService {
                     startTime: new Date(currentTime),
                     endTime: perfEnd,
                     duration: duration,
-                    classId: skatingClass.id,
-                    className: skatingClass.name,
+                    classId: sourceClass.id,
+                    className: sourceClass.name,
                     groupId: groupIndex,
                     name: `${skater.firstName} ${skater.lastName}`
                 })
