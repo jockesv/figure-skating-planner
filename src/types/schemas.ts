@@ -71,7 +71,7 @@ const OfficialSchema = z.object({
   Nationality: z.string(),
   Representing: RepresentingSchema,
   Organization: OrganizationSchema,
-  District: DistrictSchema
+  District: DistrictSchema.optional()
 }).strict()
 
 const WarmupGroupSchema = z.object({

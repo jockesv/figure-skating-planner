@@ -44,7 +44,7 @@ export interface Official {
   nationality: string
   representing: string
   organization: Organization
-  district: District
+  district?: District
 }
 
 export interface WarmupGroup {

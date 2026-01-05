@@ -92,7 +92,7 @@ interface JsonOfficial {
     Nationality: string
     Representing: string
     Organization: JsonOrganization
-    District: JsonDistrict
+    District?: JsonDistrict
 }
 
 interface JsonProgram {
@@ -246,7 +246,7 @@ const transformOfficial = (official: JsonOfficial): Official => {
         nationality: official.Nationality,
         representing: official.Representing,
         organization: transformOrganization(official.Organization),
-        district: transformDistrict(official.District)
+        district: official.District ? transformDistrict(official.District) : undefined
     }
 }
 
