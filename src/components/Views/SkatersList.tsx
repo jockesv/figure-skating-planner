@@ -19,12 +19,13 @@ import PersonIcon from '@mui/icons-material/Person'
 import GroupsIcon from '@mui/icons-material/Groups'
 import CakeIcon from '@mui/icons-material/Cake'
 import BusinessIcon from '@mui/icons-material/Business'
+import HomeIcon from '@mui/icons-material/Home'
 import { CompetitionData, Person } from '../../types'
 import { DesignTokens } from '../../theme/DesignTokens'
 
 import { Tooltip, Switch, TableSortLabel } from '@mui/material'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
-import { toggleExcludedClass, toggleScratchedSkater } from '../../store/competitionSlice'
+import { toggleExcludedClass, toggleScratchedSkater, toggleLocalSkater } from '../../store/competitionSlice'
 
 interface SkatersListProps {
     data: CompetitionData | null
@@ -32,7 +33,7 @@ interface SkatersListProps {
 
 export const SkatersList: React.FC<SkatersListProps> = ({ data }) => {
     const dispatch = useAppDispatch()
-    const { excludedClassIds, scratchedSkaterIds } = useAppSelector(state => state.competition)
+    const { excludedClassIds, scratchedSkaterIds, localSkaterIds } = useAppSelector(state => state.competition)
     const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
 
@@ -339,6 +340,18 @@ export const SkatersList: React.FC<SkatersListProps> = ({ data }) => {
                                             Ålder
                                         </TableSortLabel>
                                     </TableCell>
+
+                                    {/* Local Column */}
+                                    <TableCell
+                                        sx={{
+                                            fontWeight: 700,
+                                            bgcolor: DesignTokens.colors.neutral.background,
+                                            borderBottom: `2px solid ${DesignTokens.colors.primary.main}`,
+                                            width: '80px'
+                                        }}
+                                    >
+                                        Lokal
+                                    </TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -395,6 +408,18 @@ export const SkatersList: React.FC<SkatersListProps> = ({ data }) => {
                                                         />
                                                     </Tooltip>
                                                 </Box>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Tooltip title={localSkaterIds.includes(skater.id) ? "Markerad som lokal" : "Markera som lokal åkare"}>
+                                                    <Switch
+                                                        checked={localSkaterIds.includes(skater.id)}
+                                                        onChange={() => dispatch(toggleLocalSkater(skater.id))}
+                                                        size="small"
+                                                        color="success"
+                                                        icon={<HomeIcon sx={{ fontSize: 18 }} />}
+                                                        checkedIcon={<HomeIcon sx={{ fontSize: 18 }} />}
+                                                    />
+                                                </Tooltip>
                                             </TableCell>
                                         </TableRow>
                                     )

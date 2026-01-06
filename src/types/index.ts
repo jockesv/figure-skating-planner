@@ -20,6 +20,7 @@ export interface Person {
   entryDate: Date
   entryId: string
   ppcs: Program[]
+  isLocal?: boolean // For soft scheduling rules - local skaters can be scheduled on late Sunday slots
 }
 
 export interface Program {

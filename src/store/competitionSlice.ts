@@ -15,6 +15,7 @@ interface CompetitionState {
     validationWarnings: string[]
     excludedClassIds: string[]
     scratchedSkaterIds: string[]
+    localSkaterIds: string[]  // Skaters marked as local (for soft scheduling rules)
 }
 
 const initialState: CompetitionState = {
@@ -26,7 +27,8 @@ const initialState: CompetitionState = {
     conflicts: [],
     validationWarnings: [],
     excludedClassIds: [],
-    scratchedSkaterIds: []
+    scratchedSkaterIds: [],
+    localSkaterIds: []
 }
 
 const competitionSlice = createSlice({
@@ -61,6 +63,7 @@ const competitionSlice = createSlice({
             state.validationWarnings = []
             state.excludedClassIds = []
             state.scratchedSkaterIds = []
+            state.localSkaterIds = []
             state.error = null
         },
         toggleExcludedClass: (state, action: PayloadAction<string>) => {
@@ -79,6 +82,15 @@ const competitionSlice = createSlice({
                 state.scratchedSkaterIds.splice(index, 1)
             } else {
                 state.scratchedSkaterIds.push(id)
+            }
+        },
+        toggleLocalSkater: (state, action: PayloadAction<string>) => {
+            const id = action.payload
+            const index = state.localSkaterIds.indexOf(id)
+            if (index > -1) {
+                state.localSkaterIds.splice(index, 1)
+            } else {
+                state.localSkaterIds.push(id)
             }
         },
 
@@ -156,6 +168,7 @@ export const {
     setValidationWarnings,
     toggleExcludedClass,
     toggleScratchedSkater,
+    toggleLocalSkater,
     clearData
 } = competitionSlice.actions
 export default competitionSlice.reducer

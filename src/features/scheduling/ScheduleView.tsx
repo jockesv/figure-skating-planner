@@ -22,6 +22,8 @@ import { ExportDialog } from '../../components/Export/ExportDialog'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { updateSession, removeSession, undo, redo, setSchedule, setValidationWarnings } from '../../store/competitionSlice'
 import { ScheduleService } from '../../services/ScheduleService'
+import { AdvancedOptimizer } from '../../services/AdvancedOptimizer'
+import { updateGlobalSettings } from '../../store/settingsSlice'
 
 import { UnifiedSettingsPanel } from '../../features/settings/UnifiedSettingsPanel'
 import { DesignTokens } from '../../theme/DesignTokens'
@@ -34,7 +36,7 @@ interface ScheduleViewProps {
 
 export const ScheduleView: React.FC<ScheduleViewProps> = ({ sessions }): React.ReactElement | null => {
     const dispatch = useAppDispatch()
-    const { history, conflicts, schedule, validationWarnings, data, excludedClassIds, scratchedSkaterIds } = useAppSelector(state => state.competition)
+    const { history, conflicts, schedule, validationWarnings, data, excludedClassIds, scratchedSkaterIds, localSkaterIds } = useAppSelector(state => state.competition)
     const settings = useAppSelector(state => state.settings)
 
     // State
@@ -44,6 +46,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ sessions }): React.R
     const [editingSession, setEditingSession] = useState<ScheduleSession | null>(null)
     const [exportOpen, setExportOpen] = useState(false)
     const [showSettings, setShowSettings] = useState(false)
+    const [isOptimizing, setIsOptimizing] = useState(false)
+    const [optimizationProgress, setOptimizationProgress] = useState(0)
 
     // Derived Data: Source of truth is 'data' (uploaded file), NOT 'sessions' (generated output)
 
@@ -93,6 +97,34 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ sessions }): React.R
             regenerateSchedule()
         }
     }, [regenerateSchedule])
+
+    // Full Optimization handler
+    const runFullOptimization = React.useCallback(async () => {
+        if (!data) return
+
+        setIsOptimizing(true)
+        setOptimizationProgress(0)
+
+        // Run optimization in a setTimeout to allow UI to update
+        setTimeout(() => {
+            const optimizer = new AdvancedOptimizer()
+            const result = optimizer.optimize(
+                data,
+                settings,
+                localSkaterIds,
+                500, // iterations
+                (progress) => setOptimizationProgress(progress)
+            )
+
+            if (result.improved) {
+                // Update settings with optimized class order
+                dispatch(updateGlobalSettings({ customClassOrder: result.classOrder }))
+            }
+
+            setIsOptimizing(false)
+            setOptimizationProgress(1)
+        }, 100)
+    }, [data, settings, localSkaterIds, dispatch])
 
     // Handlers
     // Removed handleFilterChange
@@ -185,6 +217,20 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ sessions }): React.R
                         }}
                     >
                         Generera om schema
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={runFullOptimization}
+                        disabled={isOptimizing}
+                        size="small"
+                        color="secondary"
+                        sx={{
+                            borderRadius: DesignTokens.borderRadius.md,
+                            textTransform: 'none',
+                            background: isOptimizing ? undefined : DesignTokens.colors.secondary.gradient,
+                        }}
+                    >
+                        {isOptimizing ? `Optimerar... ${Math.round(optimizationProgress * 100)}%` : 'Full optimering'}
                     </Button>
                 </Stack>
 

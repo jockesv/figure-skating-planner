@@ -25,6 +25,15 @@ export interface AvailabilityBlock {
     endTime: string // HH:MM
 }
 
+// Soft scheduling rules (preferences, not hard constraints)
+export interface SoftScheduleRules {
+    avoidYoungOnFridayEvening: boolean
+    youngMaxAge: number // Skaters at or below this age are considered "young"
+    fridayLatestTime: string // e.g., "19:00" - young skaters should finish before this on Fridays
+    preferLocalOnSundayAfternoon: boolean
+    sundayLocalAfterTime: string // e.g., "15:00" - prefer local skaters after this time on Sundays
+}
+
 // Global settings
 export interface SchedulerSettings {
     startHour: number
@@ -39,6 +48,7 @@ export interface SchedulerSettings {
     rules: RuleConfig[]
     customClassOrder?: string[] // Array of Class IDs
     availability?: AvailabilityBlock[] // Explicit available time slots
+    softRules: SoftScheduleRules // Soft scheduling preferences
 }
 
 /**
@@ -92,7 +102,14 @@ const initialState: SchedulerSettings = {
     introductionDuration: 30,
     rules: defaultRules,
     customClassOrder: [],
-    availability: []
+    availability: [],
+    softRules: {
+        avoidYoungOnFridayEvening: false,
+        youngMaxAge: 12,
+        fridayLatestTime: '19:00',
+        preferLocalOnSundayAfternoon: false,
+        sundayLocalAfterTime: '15:00'
+    }
 }
 
 const settingsSlice = createSlice({
