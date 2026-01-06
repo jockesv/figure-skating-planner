@@ -394,9 +394,30 @@ export class ScheduleService {
     }
 
     private checkMergeCompatibility(unit: { classes: SkatingClass[], isMerged: boolean }, candidate: SkatingClass, settings: SchedulerSettings): boolean {
+        // 0. Pre-check: Only merge "small" classes
+        // According to rules.md: "Slå inte samman någon grupp som redan är så stor att den delats i flera
+        // uppvärmningsgrupper. Dessa grupper räknas inte som 'små' och vi slår bara samman 'små' uppvärmningsgrupper."
+
+        // Check if candidate is "small" (would fit in one group on its own)
+        const candidateSkaters = this.getAllSkaters(candidate)
+        const candidateRule = this.getRuleForClass(candidate.name, settings.rules)
+        if (candidateSkaters.length > candidateRule.maxGroupSize) {
+            // Candidate class is too large (would need multiple groups) - not eligible for merging
+            return false
+        }
+
+        // Check if each class in the existing unit is "small"
+        for (const existingClass of unit.classes) {
+            const existingSkaters = this.getAllSkaters(existingClass)
+            const existingRule = this.getRuleForClass(existingClass.name, settings.rules)
+            if (existingSkaters.length > existingRule.maxGroupSize) {
+                // Existing class is too large - unit not eligible for further merging
+                return false
+            }
+        }
+
         // 1. Get Params
         const existingSkaters = unit.classes.flatMap(c => this.getAllSkaters(c))
-        const candidateSkaters = this.getAllSkaters(candidate)
 
         // 2. Max Group Size Check
         // Use strict check: Both primary class rule AND candidate class rule must be satisfied by the TOTAL size?
