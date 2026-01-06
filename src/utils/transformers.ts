@@ -11,6 +11,7 @@ import {
     Organization,
     District
 } from '../types'
+import { findMatchingRule } from '../data/classRulesData'
 // Removed uuidv4 as it is not currently used and package is missing
 
 // Type definitions matching the JSON structure (Zod output)
@@ -143,43 +144,59 @@ const transformDistrict = (dist: JsonDistrict): District => {
 }
 
 const transformCompetitionClass = (comp: JsonCompetitionClass): CompetitionClass => {
-    // Split skating classes by program type if they have both Kortprogram and Friåkning
+    // Split skating classes by program type based on class rules
+    // Color classes (Vit, Gul, Grön, Blå, Röd, Grå, Svart) only have Free Skating
+    // Other classes (Ungdom, Junior, Senior) have both Short and Free programs
     const expandedClasses: SkatingClass[] = []
 
     comp.Classes.forEach(cls => {
-        // Check if this class has skaters with multiple program types
-        const allPersons = cls.Groups.flatMap(g => g.Persons)
-        const programTypes = new Set<string>()
-        allPersons.forEach(person => {
-            person.Ppcs.forEach(ppc => programTypes.add(ppc.Type))
-        })
+        // Get the rule for this class to determine if it should have both programs
+        const classRule = findMatchingRule(cls.Name)
 
-        if (programTypes.size > 1) {
-            // Has multiple program types - split into separate classes
-            // Must follow order: Kortprogram FIRST, then Friåkning
-            const orderedTypes = ['Kortprogram', 'Friåkning'].filter(t => programTypes.has(t))
+        // If the class rule has performanceTimeShort defined (not null), 
+        // it means this class type should have both short and free programs
+        const shouldHaveBothPrograms = classRule.performanceTimeShort !== null
 
-            orderedTypes.forEach(programType => {
-                // Create a new class for this program type
-                const filteredGroups = cls.Groups.map(group => ({
-                    ...group,
-                    Persons: group.Persons.filter(person =>
-                        person.Ppcs.some(ppc => ppc.Type === programType)
-                    )
-                })).filter(group => group.Persons.length > 0)
-
-                if (filteredGroups.length > 0) {
-                    expandedClasses.push(transformSkatingClass({
-                        ...cls,
-                        Id: `${cls.Id}-${programType}`,
-                        Name: `${cls.Name} - ${programType}`,
-                        Type: programType,
-                        Groups: filteredGroups
-                    }))
-                }
+        if (shouldHaveBothPrograms) {
+            // This class type supports both short and free programs
+            // Split into separate classes based on what the skaters actually have
+            const allPersons = cls.Groups.flatMap(g => g.Persons)
+            const programTypes = new Set<string>()
+            allPersons.forEach(person => {
+                person.Ppcs.forEach(ppc => programTypes.add(ppc.Type))
             })
+
+            // Only split if we actually have both program types in the data
+            if (programTypes.has('Kortprogram') && programTypes.has('Friåkning')) {
+                // Must follow order: Kortprogram FIRST, then Friåkning
+                const orderedTypes = ['Kortprogram', 'Friåkning']
+
+                orderedTypes.forEach(programType => {
+                    // Create a new class for this program type
+                    const filteredGroups = cls.Groups.map(group => ({
+                        ...group,
+                        Persons: group.Persons.filter(person =>
+                            person.Ppcs.some(ppc => ppc.Type === programType)
+                        )
+                    })).filter(group => group.Persons.length > 0)
+
+                    if (filteredGroups.length > 0) {
+                        expandedClasses.push(transformSkatingClass({
+                            ...cls,
+                            Id: `${cls.Id}-${programType}`,
+                            Name: `${cls.Name} - ${programType}`,
+                            Type: programType,
+                            Groups: filteredGroups
+                        }))
+                    }
+                })
+            } else {
+                // Only one program type present, keep as is
+                expandedClasses.push(transformSkatingClass(cls))
+            }
         } else {
-            // Single program type - keep as is
+            // This class type only supports Free Skating (e.g., color classes)
+            // Don't split, keep as a single class
             expandedClasses.push(transformSkatingClass(cls))
         }
     })

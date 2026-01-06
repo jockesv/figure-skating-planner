@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { Container, Typography, Box, Button } from '@mui/material'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { setCompetitionData, setLoading, setError, setValidationWarnings } from '../../store/competitionSlice'
+import { generateRulesForClasses } from '../../store/settingsSlice'
 import { FileUploader } from '../../components/Import/FileUploader'
 import { ImportSummary } from '../../components/Import/ImportSummary'
 import { validateCompetitionData, formatZodError } from '../../types/schemas'
@@ -96,6 +97,13 @@ export const ImportView: React.FC = (): React.ReactElement => {
                     const appData = transformCompetitionData(validatedJson as any)
 
                     dispatch(setCompetitionData(appData))
+
+                    // Extract unique class names and generate rules for them
+                    const classNames = appData.event.competitions.flatMap(comp =>
+                        comp.classes.map(cls => cls.name)
+                    )
+                    const uniqueClassNames = [...new Set(classNames)]
+                    dispatch(generateRulesForClasses(uniqueClassNames))
                 } catch (validationError) {
                     console.error('Validation error:', validationError)
                     if (validationError instanceof ZodError) {

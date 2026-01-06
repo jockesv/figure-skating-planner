@@ -62,7 +62,8 @@ export const ConfigurationPanel: React.FC = (): React.ReactElement => {
             maxGroupSize: 8,
             maxSkatersBetweenResurfacing: 16,
             judgingTimeShort: 110,
-            judgingTimeFree: 140
+            judgingTimeFree: 140,
+            firstSkaterInWarmupGroup: 30
         }))
         setExpanded('rules')
     }
