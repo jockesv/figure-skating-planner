@@ -27,9 +27,9 @@ export interface AvailabilityBlock {
 
 // Soft scheduling rules (preferences, not hard constraints)
 export interface SoftScheduleRules {
-    avoidYoungOnFridayEvening: boolean
+    avoidYoungOnLateSlots: boolean
     youngMaxAge: number // Skaters at or below this age are considered "young"
-    fridayLatestTime: string // e.g., "19:00" - young skaters should finish before this on Fridays
+    youngLatestTime: string // e.g., "19:00" - young skaters should finish before this time
     preferLocalOnSundayAfternoon: boolean
     sundayLocalAfterTime: string // e.g., "15:00" - prefer local skaters after this time on Sundays
 }
@@ -104,9 +104,9 @@ const initialState: SchedulerSettings = {
     customClassOrder: [],
     availability: [],
     softRules: {
-        avoidYoungOnFridayEvening: false,
+        avoidYoungOnLateSlots: false,
         youngMaxAge: 12,
-        fridayLatestTime: '19:00',
+        youngLatestTime: '19:00',
         preferLocalOnSundayAfternoon: false,
         sundayLocalAfterTime: '15:00'
     }

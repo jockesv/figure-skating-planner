@@ -150,7 +150,7 @@ export class AdvancedOptimizer {
         }
 
         // Add penalties for soft rule violations
-        if (settings.softRules.avoidYoungOnFridayEvening || settings.softRules.preferLocalOnSundayAfternoon) {
+        if (settings.softRules.avoidYoungOnLateSlots || settings.softRules.preferLocalOnSundayAfternoon) {
             cost += this.calculateSoftRulePenalties(schedule.sessions, data, settings.softRules, localSkaterIds)
         }
 
@@ -249,9 +249,9 @@ export class AdvancedOptimizer {
             const skater = skaterMap.get(session.name)
             if (!skater) continue
 
-            // Rule 1: Young skaters on Friday evening
-            if (softRules.avoidYoungOnFridayEvening && dayOfWeek === 5) {
-                if (timeStr >= softRules.fridayLatestTime) {
+            // Rule 1: Young skaters on late slots (any day)
+            if (softRules.avoidYoungOnLateSlots) {
+                if (timeStr >= softRules.youngLatestTime) {
                     const age = this.calculateAge(skater.birthDate)
                     if (age <= softRules.youngMaxAge) {
                         penalty += VIOLATION_PENALTY

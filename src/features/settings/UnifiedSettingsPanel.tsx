@@ -9,6 +9,8 @@ import {
     IconButton,
     Tabs,
     Tab,
+    Switch,
+    FormControlLabel,
 } from '@mui/material'
 import SettingsIcon from '@mui/icons-material/Settings'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
@@ -16,6 +18,7 @@ import ShieldIcon from '@mui/icons-material/Shield'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import AddIcon from '@mui/icons-material/Add'
+import TuneIcon from '@mui/icons-material/Tune'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import {
     updateGlobalSettings,
@@ -189,6 +192,11 @@ export const UnifiedSettingsPanel: React.FC = (): React.ReactElement => {
                         icon={<ShieldIcon />}
                         iconPosition="start"
                         label="Klassregler"
+                    />
+                    <Tab
+                        icon={<TuneIcon />}
+                        iconPosition="start"
+                        label="Optimeringsinställningar"
                     />
                 </Tabs>
             </Box>
@@ -379,6 +387,145 @@ export const UnifiedSettingsPanel: React.FC = (): React.ReactElement => {
                                 </Typography>
                             </Box>
                         )}
+                    </Box>
+                )}
+
+                {/* PANEL 3: Soft Scheduling Rules */}
+                {activeTab === 2 && (
+                    <Box className="animate-fadeIn">
+                        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                            Konfigurera mjuka regler för optimerad schemaläggning. Dessa regler används av "Full optimering".
+                        </Typography>
+
+                        {/* Young Skaters Late Slots Rule */}
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: 3,
+                                mb: 2,
+                                border: `1px solid ${DesignTokens.colors.neutral.border}`,
+                                borderRadius: DesignTokens.borderRadius.lg,
+                            }}
+                        >
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={settings.softRules.avoidYoungOnLateSlots}
+                                        onChange={(e) => dispatch(updateGlobalSettings({
+                                            softRules: {
+                                                ...settings.softRules,
+                                                avoidYoungOnLateSlots: e.target.checked
+                                            }
+                                        }))}
+                                        color="primary"
+                                    />
+                                }
+                                label={
+                                    <Box>
+                                        <Typography fontWeight={600}>Undvik unga åkare på sena pass</Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            Unga åkare schemaläggs tidigare på dagen för att kunna sova ordentligt
+                                        </Typography>
+                                    </Box>
+                                }
+                            />
+                            {settings.softRules.avoidYoungOnLateSlots && (
+                                <Grid container spacing={2} sx={{ mt: 2 }}>
+                                    <Grid item xs={6}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            type="number"
+                                            label="Maxålder för 'ung' åkare"
+                                            value={settings.softRules.youngMaxAge}
+                                            onChange={(e) => dispatch(updateGlobalSettings({
+                                                softRules: {
+                                                    ...settings.softRules,
+                                                    youngMaxAge: Number(e.target.value)
+                                                }
+                                            }))}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            type="time"
+                                            label="Senaste tid för unga åkare"
+                                            value={settings.softRules.youngLatestTime}
+                                            onChange={(e) => dispatch(updateGlobalSettings({
+                                                softRules: {
+                                                    ...settings.softRules,
+                                                    youngLatestTime: e.target.value
+                                                }
+                                            }))}
+                                            InputLabelProps={{ shrink: true }}
+                                        />
+                                    </Grid>
+                                </Grid>
+                            )}
+                        </Paper>
+
+                        {/* Sunday Afternoon Rule */}
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: 3,
+                                mb: 2,
+                                border: `1px solid ${DesignTokens.colors.neutral.border}`,
+                                borderRadius: DesignTokens.borderRadius.lg,
+                            }}
+                        >
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={settings.softRules.preferLocalOnSundayAfternoon}
+                                        onChange={(e) => dispatch(updateGlobalSettings({
+                                            softRules: {
+                                                ...settings.softRules,
+                                                preferLocalOnSundayAfternoon: e.target.checked
+                                            }
+                                        }))}
+                                        color="primary"
+                                    />
+                                }
+                                label={
+                                    <Box>
+                                        <Typography fontWeight={600}>Föredra lokala åkare på söndagseftermiddag</Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            Åkare som bor nära tävlingen får sena pass på söndag så långväga åkare kan åka hem tidigare
+                                        </Typography>
+                                    </Box>
+                                }
+                            />
+                            {settings.softRules.preferLocalOnSundayAfternoon && (
+                                <Grid container spacing={2} sx={{ mt: 2 }}>
+                                    <Grid item xs={6}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            type="time"
+                                            label="Tid fr.o.m. på söndag"
+                                            value={settings.softRules.sundayLocalAfterTime}
+                                            onChange={(e) => dispatch(updateGlobalSettings({
+                                                softRules: {
+                                                    ...settings.softRules,
+                                                    sundayLocalAfterTime: e.target.value
+                                                }
+                                            }))}
+                                            InputLabelProps={{ shrink: true }}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Box sx={{ pt: 1 }}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                💡 Tagga åkare som lokala i "Tävlande"-vyn
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                </Grid>
+                            )}
+                        </Paper>
                     </Box>
                 )}
             </Box>
