@@ -81,8 +81,9 @@ const getSessionColors = (type: string) => {
 }
 
 // Get consistent color for a class based on class name
+// Color-named classes (vit, gul, grön, blå, röd, grå, svart) get their actual colors
 // Same base class (e.g., "Junior Damer") gets same color for both programs
-const getClassColor = (className: string): { gradient: string; main: string; dark: string } => {
+const getClassColor = (className: string): { gradient: string; main: string; dark: string; textColor?: string } => {
     // Remove program type suffix to get base class name
     const baseClassName = className
         .replace(/ - Kortprogram$/i, '')
@@ -90,20 +91,77 @@ const getClassColor = (className: string): { gradient: string; main: string; dar
         .replace(/ - Short Program$/i, '')
         .replace(/ - Free Skating$/i, '')
 
-    // Predefined beautiful color palette for classes
+    const lowerName = baseClassName.toLowerCase()
+
+    // Color-named classes get their actual colors
+    // Check for exact color matches first
+    if (lowerName.includes('vit')) {
+        return {
+            main: '#F5F5F5',
+            dark: '#E0E0E0',
+            gradient: 'linear-gradient(135deg, #FFFFFF 0%, #E0E0E0 100%)',
+            textColor: '#424242' // Dark text for light background
+        }
+    }
+    if (lowerName.includes('gul')) {
+        return {
+            main: '#FFEB3B',
+            dark: '#FBC02D',
+            gradient: 'linear-gradient(135deg, #FFEB3B 0%, #FDD835 100%)',
+            textColor: '#424242' // Dark text for yellow
+        }
+    }
+    if (lowerName.includes('grön')) {
+        return {
+            main: '#4CAF50',
+            dark: '#388E3C',
+            gradient: 'linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%)'
+        }
+    }
+    if (lowerName.includes('blå')) {
+        return {
+            main: '#2196F3',
+            dark: '#1976D2',
+            gradient: 'linear-gradient(135deg, #2196F3 0%, #42A5F5 100%)'
+        }
+    }
+    if (lowerName.includes('röd')) {
+        return {
+            main: '#F44336',
+            dark: '#D32F2F',
+            gradient: 'linear-gradient(135deg, #F44336 0%, #EF5350 100%)'
+        }
+    }
+    if (lowerName.includes('grå')) {
+        return {
+            main: '#9E9E9E',
+            dark: '#757575',
+            gradient: 'linear-gradient(135deg, #9E9E9E 0%, #BDBDBD 100%)'
+        }
+    }
+    if (lowerName.includes('svart')) {
+        return {
+            main: '#424242',
+            dark: '#212121',
+            gradient: 'linear-gradient(135deg, #424242 0%, #616161 100%)'
+        }
+    }
+
+    // Color palette for non-color-named classes
+    // Avoid colors already used by color classes (yellow, green, blue, red, gray, black, white)
     const colorPalette = [
-        { main: '#4CAF50', dark: '#388E3C', gradient: 'linear-gradient(135deg, #4CAF50 0%, #81C784 100%)' }, // Green
-        { main: '#2196F3', dark: '#1976D2', gradient: 'linear-gradient(135deg, #2196F3 0%, #64B5F6 100%)' }, // Blue
-        { main: '#FF9800', dark: '#F57C00', gradient: 'linear-gradient(135deg, #FF9800 0%, #FFB74D 100%)' }, // Orange
         { main: '#9C27B0', dark: '#7B1FA2', gradient: 'linear-gradient(135deg, #9C27B0 0%, #BA68C8 100%)' }, // Purple
-        { main: '#F44336', dark: '#D32F2F', gradient: 'linear-gradient(135deg, #F44336 0%, #EF5350 100%)' }, // Red
+        { main: '#FF9800', dark: '#F57C00', gradient: 'linear-gradient(135deg, #FF9800 0%, #FFB74D 100%)' }, // Orange
         { main: '#00BCD4', dark: '#0097A7', gradient: 'linear-gradient(135deg, #00BCD4 0%, #4DD0E1 100%)' }, // Cyan
-        { main: '#FFEB3B', dark: '#FBC02D', gradient: 'linear-gradient(135deg, #FFEB3B 0%, #FFF176 100%)' }, // Yellow
         { main: '#E91E63', dark: '#C2185B', gradient: 'linear-gradient(135deg, #E91E63 0%, #F06292 100%)' }, // Pink
         { main: '#3F51B5', dark: '#303F9F', gradient: 'linear-gradient(135deg, #3F51B5 0%, #7986CB 100%)' }, // Indigo
         { main: '#009688', dark: '#00796B', gradient: 'linear-gradient(135deg, #009688 0%, #4DB6AC 100%)' }, // Teal
         { main: '#FF5722', dark: '#E64A19', gradient: 'linear-gradient(135deg, #FF5722 0%, #FF8A65 100%)' }, // Deep Orange
         { main: '#795548', dark: '#5D4037', gradient: 'linear-gradient(135deg, #795548 0%, #A1887F 100%)' }, // Brown
+        { main: '#673AB7', dark: '#512DA8', gradient: 'linear-gradient(135deg, #673AB7 0%, #9575CD 100%)' }, // Deep Purple
+        { main: '#03A9F4', dark: '#0288D1', gradient: 'linear-gradient(135deg, #03A9F4 0%, #4FC3F7 100%)' }, // Light Blue
+        { main: '#8BC34A', dark: '#689F38', gradient: 'linear-gradient(135deg, #8BC34A 0%, #AED581 100%)' }, // Light Green
+        { main: '#FFC107', dark: '#FFA000', gradient: 'linear-gradient(135deg, #FFC107 0%, #FFD54F 100%)' }, // Amber
     ]
 
     // Simple hash function to generate consistent index
@@ -359,7 +417,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                                         display: 'block',
                                         fontWeight: 700,
                                         fontSize: '0.65rem',
-                                        color: 'white',
+                                        color: classColors.textColor || 'white',
                                         whiteSpace: 'nowrap',
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis',
@@ -374,7 +432,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                                         display: 'block',
                                         fontSize: '0.65rem',
                                         lineHeight: 1.1,
-                                        color: 'rgba(255,255,255,0.9)',
+                                        color: classColors.textColor ? `${classColors.textColor}E6` : 'rgba(255,255,255,0.9)',
                                         fontWeight: 500,
                                     }}
                                 >
@@ -393,7 +451,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                                     sx={{
                                         display: 'block',
                                         fontSize: '0.6rem',
-                                        color: 'rgba(255,255,255,0.8)',
+                                        color: classColors.textColor ? `${classColors.textColor}CC` : 'rgba(255,255,255,0.8)',
                                         fontFamily: DesignTokens.typography.fontFamily.mono,
                                         mt: 'auto'
                                     }}
