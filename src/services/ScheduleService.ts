@@ -649,6 +649,14 @@ export class ScheduleService {
         const total = skaters.length
         if (total === 0) return []
 
+        // Sort skaters by birth date (youngest first - most recent birth dates first)
+        // This ensures similar-aged skaters are grouped together
+        const sortedSkaters = [...skaters].sort((a, b) => {
+            const dateA = a.birthDate ? new Date(a.birthDate).getTime() : 0
+            const dateB = b.birthDate ? new Date(b.birthDate).getTime() : 0
+            return dateB - dateA // Descending = youngest first
+        })
+
         const numGroups = Math.ceil(total / maxGroupSize)
         const baseSize = Math.floor(total / numGroups)
         const remainder = total % numGroups
@@ -660,7 +668,7 @@ export class ScheduleService {
             const extra = i >= (numGroups - remainder) ? 1 : 0
             const size = baseSize + extra
 
-            groups.push(skaters.slice(currentSkaterIndex, currentSkaterIndex + size))
+            groups.push(sortedSkaters.slice(currentSkaterIndex, currentSkaterIndex + size))
             currentSkaterIndex += size
         }
 
