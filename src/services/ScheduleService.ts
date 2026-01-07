@@ -182,6 +182,35 @@ export class ScheduleService {
             }
             if (currentBlock) blocks.push(currentBlock)
 
+            // CONSTRAINT: All blocks for a unit must fit on the same day
+            // If the unit has multiple blocks (multi-group class), check if they all fit in current slot
+            // If not, move to next slot to prevent splitting across days
+            if (blocks.length > 1) {
+                const totalUnitDuration = blocks.reduce((sum, b) => sum + b.totalDuration, 0)
+
+                // Check if all blocks fit in remaining time of current slot
+                while (currentSlotIndex < slots.length) {
+                    const slot = slots[currentSlotIndex]
+                    const remainingTime = (slot.end.getTime() - currentTime.getTime()) / 1000
+
+                    if (totalUnitDuration <= remainingTime) {
+                        break // Fits in current slot
+                    } else {
+                        // Doesn't fit - move to next day
+                        currentSlotIndex++
+                        if (currentSlotIndex < slots.length) {
+                            currentTime = new Date(slots[currentSlotIndex].start)
+                            accumulatedDuration = 0
+                            accumulatedSkaters = 0
+                        }
+                    }
+                }
+
+                if (currentSlotIndex >= slots.length) {
+                    warnings.push(`Klass ${unit.classes.map(c => c.name).join(' & ')} har för många uppvärmningsgrupper för att få plats på en dag`)
+                }
+            }
+
             // Place Blocks
             for (const block of blocks) {
                 // 1. Dynamic Lunch Check (Between Blocks)
@@ -632,6 +661,30 @@ export class ScheduleService {
             }
         })
 
+        // 2. Check if multi-group classes are split across days
+        const classWarmups = new Map<string, Date[]>()
+        schedule.sessions.forEach(s => {
+            if (s.type !== 'warmup') return
+            if (!s.className) return
+
+            if (!classWarmups.has(s.className)) {
+                classWarmups.set(s.className, [])
+            }
+            classWarmups.get(s.className)!.push(new Date(s.startTime))
+        })
+
+        classWarmups.forEach((warmupDates, className) => {
+            if (warmupDates.length > 1) {
+                const firstDay = warmupDates[0].toDateString()
+                for (let i = 1; i < warmupDates.length; i++) {
+                    if (warmupDates[i].toDateString() !== firstDay) {
+                        warnings.push(`Delad klass: ${className} har uppvärmningsgrupper på olika dagar.`)
+                        break
+                    }
+                }
+            }
+        })
+
         return warnings
     }
 
@@ -649,14 +702,7 @@ export class ScheduleService {
         const total = skaters.length
         if (total === 0) return []
 
-        // Sort skaters by birth date (youngest first - most recent birth dates first)
-        // This ensures similar-aged skaters are grouped together
-        const sortedSkaters = [...skaters].sort((a, b) => {
-            const dateA = a.birthDate ? new Date(a.birthDate).getTime() : 0
-            const dateB = b.birthDate ? new Date(b.birthDate).getTime() : 0
-            return dateB - dateA // Descending = youngest first
-        })
-
+        // Keep original order from file (no sorting)
         const numGroups = Math.ceil(total / maxGroupSize)
         const baseSize = Math.floor(total / numGroups)
         const remainder = total % numGroups
@@ -668,7 +714,7 @@ export class ScheduleService {
             const extra = i >= (numGroups - remainder) ? 1 : 0
             const size = baseSize + extra
 
-            groups.push(sortedSkaters.slice(currentSkaterIndex, currentSkaterIndex + size))
+            groups.push(skaters.slice(currentSkaterIndex, currentSkaterIndex + size))
             currentSkaterIndex += size
         }
 

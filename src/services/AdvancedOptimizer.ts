@@ -211,6 +211,34 @@ export class AdvancedOptimizer {
             }
         })
 
+        // Constraint 3: Multi-group classes must be on the same day
+        // Group sessions by class and check if warmups span multiple days
+        const classWarmups = new Map<string, Date[]>()
+        for (const session of sessions) {
+            if (session.type !== 'warmup') continue
+            if (!session.className) continue
+
+            const className = session.className
+            if (!classWarmups.has(className)) {
+                classWarmups.set(className, [])
+            }
+            classWarmups.get(className)!.push(new Date(session.startTime))
+        }
+
+        classWarmups.forEach((warmupTimes, _className) => {
+            if (warmupTimes.length > 1) {
+                // Check if all warmups are on the same day
+                const firstDay = warmupTimes[0].toDateString()
+                for (let i = 1; i < warmupTimes.length; i++) {
+                    if (warmupTimes[i].toDateString() !== firstDay) {
+                        // Class is split across days - massive penalty
+                        penalty += HARD_VIOLATION_PENALTY
+                        break
+                    }
+                }
+            }
+        })
+
         return penalty
     }
 
