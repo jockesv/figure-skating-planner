@@ -12,13 +12,11 @@ import {
 } from '@mui/material'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
-import DownloadIcon from '@mui/icons-material/Download'
 
 import { ScheduleSession } from '../../types'
 import { Timeline } from '../../components/Timeline/Timeline'
 import { TimelineControls } from '../../components/Timeline/TimelineControls'
 import { SessionEditDialog } from './SessionEditDialog'
-import { ExportDialog } from '../../components/Export/ExportDialog'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { updateSession, removeSession, undo, redo, setSchedule, setValidationWarnings } from '../../store/competitionSlice'
 import { ScheduleService } from '../../services/ScheduleService'
@@ -36,7 +34,7 @@ interface ScheduleViewProps {
 
 export const ScheduleView: React.FC<ScheduleViewProps> = ({ sessions }): React.ReactElement | null => {
     const dispatch = useAppDispatch()
-    const { history, conflicts, schedule, validationWarnings, data, excludedClassIds, scratchedSkaterIds, localSkaterIds } = useAppSelector(state => state.competition)
+    const { history, conflicts, validationWarnings, data, excludedClassIds, scratchedSkaterIds, localSkaterIds } = useAppSelector(state => state.competition)
     const settings = useAppSelector(state => state.settings)
 
     // State
@@ -44,7 +42,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ sessions }): React.R
     const [zoomLevel, setZoomLevel] = useState<number>(4) // Default 4px per min
     // Removed local filterClasses state
     const [editingSession, setEditingSession] = useState<ScheduleSession | null>(null)
-    const [exportOpen, setExportOpen] = useState(false)
     const [showSettings, setShowSettings] = useState(false)
     const [isOptimizing, setIsOptimizing] = useState(false)
     const [optimizationProgress, setOptimizationProgress] = useState(0)
@@ -174,20 +171,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ sessions }): React.R
                         title="Gör om"
                     >
                         Gör om
-                    </Button>
-                    <Button
-                        startIcon={<DownloadIcon />}
-                        onClick={() => setExportOpen(true)}
-                        variant="contained"
-                        sx={{
-                            background: DesignTokens.colors.primary.gradient,
-                            boxShadow: DesignTokens.shadows.md,
-                            borderRadius: DesignTokens.borderRadius.md,
-                            textTransform: 'none',
-                        }}
-                        size="small"
-                    >
-                        Exportera
                     </Button>
                 </Stack>
             </Stack>
@@ -356,11 +339,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ sessions }): React.R
                 onDelete={handleDeleteSession}
             />
 
-            <ExportDialog
-                open={exportOpen}
-                onClose={() => setExportOpen(false)}
-                schedule={{ ...schedule!, sessions: sessions }}
-            />
+
         </Box>
     )
 }

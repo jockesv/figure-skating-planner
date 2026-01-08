@@ -17,8 +17,11 @@ import { setSchedule } from '../../store/competitionSlice'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import PrintIcon from '@mui/icons-material/Print'
+import DownloadIcon from '@mui/icons-material/Download'
 import { UnifiedSettingsPanel } from '../settings/UnifiedSettingsPanel'
 import { DesignTokens } from '../../theme/DesignTokens'
+import { ExportService } from '../../services/ExportService'
 import { completeStep, setCanProceed, nextStep, previousStep, goToStep } from '../../store/workflowSlice'
 
 export const ImportView: React.FC = (): React.ReactElement => {
@@ -52,9 +55,12 @@ export const ImportView: React.FC = (): React.ReactElement => {
         // Mark schedule step as complete when schedule is generated
         if (schedule && !completedSteps.includes('schedule')) {
             dispatch(completeStep('schedule'))
+        }
+        // Allow proceeding from schedule step if schedule exists
+        if (currentStep === 'schedule' && schedule) {
             dispatch(setCanProceed(true))
         }
-    }, [schedule, completedSteps, dispatch])
+    }, [schedule, completedSteps, currentStep, dispatch])
 
     const handleGenerateSchedule = (): void => {
         if (!data) return
@@ -371,34 +377,183 @@ export const ImportView: React.FC = (): React.ReactElement => {
 
                 {/* STEP 4: EXPORT */}
                 {currentStep === 'export' && schedule && (
-                    <Box className="no-print" sx={{ textAlign: 'center', py: 8 }}>
-                        <Typography variant="h4" gutterBottom fontWeight={700}>
-                            Exportera ditt schema
-                        </Typography>
-                        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-                            Ditt schema är klart! Använd utskriftsfunktionen eller exportalternativen nedan.
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 4 }}>
+                    <Box className="no-print" sx={{ py: 6 }}>
+                        <Box sx={{ textAlign: 'center', mb: 6 }}>
+                            <Typography variant="h4" gutterBottom fontWeight={700}>
+                                Exportera ditt schema
+                            </Typography>
+                            <Typography variant="body1" color="text.secondary">
+                                Ditt schema är klart! Välj exportformat nedan.
+                            </Typography>
+                        </Box>
+
+                        {/* Export Options Grid */}
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+                                gap: 3,
+                                maxWidth: 900,
+                                mx: 'auto',
+                                mb: 6
+                            }}
+                        >
+                            {/* Print / PDF */}
+                            <Box
+                                className="glass-card"
+                                sx={{
+                                    p: 4,
+                                    borderRadius: DesignTokens.borderRadius.xl,
+                                    textAlign: 'center',
+                                    transition: DesignTokens.transitions.normal,
+                                    '&:hover': {
+                                        transform: 'translateY(-4px)',
+                                        boxShadow: DesignTokens.shadows.xl,
+                                    }
+                                }}
+                            >
+                                <PrintIcon sx={{ fontSize: 48, color: DesignTokens.colors.primary.main, mb: 2 }} />
+                                <Typography variant="h6" fontWeight={600} gutterBottom>
+                                    Skriv ut / PDF
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                                    Skriv ut schemat direkt eller spara som PDF via utskriftsdialogen.
+                                </Typography>
+                                <Button
+                                    variant="contained"
+                                    size="large"
+                                    startIcon={<PrintIcon />}
+                                    onClick={() => {
+                                        ExportService.printSchedule()
+                                    }}
+                                    sx={{
+                                        px: 4,
+                                        py: 1.5,
+                                        borderRadius: DesignTokens.borderRadius.lg,
+                                        background: DesignTokens.colors.primary.gradient,
+                                        boxShadow: DesignTokens.shadows.md,
+                                        '&:hover': {
+                                            background: DesignTokens.colors.primary.gradient,
+                                            filter: 'brightness(1.1)',
+                                        }
+                                    }}
+                                >
+                                    Skriv ut
+                                </Button>
+                            </Box>
+
+                            {/* CSV Export */}
+                            <Box
+                                className="glass-card"
+                                sx={{
+                                    p: 4,
+                                    borderRadius: DesignTokens.borderRadius.xl,
+                                    textAlign: 'center',
+                                    transition: DesignTokens.transitions.normal,
+                                    '&:hover': {
+                                        transform: 'translateY(-4px)',
+                                        boxShadow: DesignTokens.shadows.xl,
+                                    }
+                                }}
+                            >
+                                <DownloadIcon sx={{ fontSize: 48, color: DesignTokens.colors.secondary.main, mb: 2 }} />
+                                <Typography variant="h6" fontWeight={600} gutterBottom>
+                                    CSV (Kalkylblad)
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                                    Exportera för Excel, Google Sheets eller andra kalkylprogram.
+                                </Typography>
+                                <Button
+                                    variant="contained"
+                                    size="large"
+                                    startIcon={<DownloadIcon />}
+                                    onClick={() => {
+                                        ExportService.exportToCSV(schedule, 'competition-schedule')
+                                    }}
+                                    sx={{
+                                        px: 4,
+                                        py: 1.5,
+                                        borderRadius: DesignTokens.borderRadius.lg,
+                                        background: DesignTokens.colors.secondary.gradient,
+                                        boxShadow: DesignTokens.shadows.md,
+                                        '&:hover': {
+                                            background: DesignTokens.colors.secondary.gradient,
+                                            filter: 'brightness(1.1)',
+                                        }
+                                    }}
+                                >
+                                    Ladda ner CSV
+                                </Button>
+                            </Box>
+
+                            {/* JSON Export */}
+                            <Box
+                                className="glass-card"
+                                sx={{
+                                    p: 4,
+                                    borderRadius: DesignTokens.borderRadius.xl,
+                                    textAlign: 'center',
+                                    transition: DesignTokens.transitions.normal,
+                                    '&:hover': {
+                                        transform: 'translateY(-4px)',
+                                        boxShadow: DesignTokens.shadows.xl,
+                                    }
+                                }}
+                            >
+                                <DownloadIcon sx={{ fontSize: 48, color: DesignTokens.colors.text.secondary, mb: 2 }} />
+                                <Typography variant="h6" fontWeight={600} gutterBottom>
+                                    JSON (Backup)
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                                    Spara schemat i JSON-format för säkerhetskopiering eller vidare bearbetning.
+                                </Typography>
+                                <Button
+                                    variant="outlined"
+                                    size="large"
+                                    startIcon={<DownloadIcon />}
+                                    onClick={() => {
+                                        ExportService.exportToJSON(schedule, 'competition-schedule')
+                                    }}
+                                    sx={{
+                                        px: 4,
+                                        py: 1.5,
+                                        borderRadius: DesignTokens.borderRadius.lg,
+                                        borderColor: DesignTokens.colors.neutral.border,
+                                        color: DesignTokens.colors.text.primary,
+                                        '&:hover': {
+                                            borderColor: DesignTokens.colors.primary.main,
+                                            background: 'rgba(33, 150, 243, 0.05)',
+                                        }
+                                    }}
+                                >
+                                    Ladda ner JSON
+                                </Button>
+                            </Box>
+                        </Box>
+
+                        {/* Back Button */}
+                        <Box sx={{ textAlign: 'center' }}>
                             <Button
-                                variant="contained"
+                                variant="outlined"
                                 size="large"
-                                onClick={() => window.print()}
+                                startIcon={<ArrowBackIcon />}
+                                onClick={handlePreviousStep}
                                 sx={{
                                     px: 4,
                                     py: 1.5,
                                     borderRadius: DesignTokens.borderRadius.lg,
+                                    borderColor: 'rgba(0,0,0,0.2)',
+                                    color: DesignTokens.colors.text.secondary,
+                                    '&:hover': {
+                                        borderColor: DesignTokens.colors.primary.main,
+                                        color: DesignTokens.colors.primary.main,
+                                        background: 'rgba(33, 150, 243, 0.05)',
+                                    }
                                 }}
                             >
-                                Skriv ut schema
+                                Tillbaka till Schema
                             </Button>
                         </Box>
-                        <Button
-                            variant="outlined"
-                            startIcon={<ArrowBackIcon />}
-                            onClick={handlePreviousStep}
-                        >
-                            Tillbaka till Schema
-                        </Button>
                     </Box>
                 )}
             </Container>
